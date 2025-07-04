@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AudioNote - Голосовые заметки с тегами</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎙️ AudioNote</h1>
+            <p>Голосовые заметки с тегами</p>
+        </header>
+
+        <main>
+            <section class="recording-section">
+                <h2>Новая заметка</h2>
+                <div class="recorder">
+                    <button id="recordButton" class="record-btn">🎤 Начать запись</button>
+                    <div id="timer">00:00</div>
+                    <audio id="audioPlayback" controls style="display: none;"></audio>
+                </div>
+                
+                <div class="note-options">
+                    <div class="form-group">
+                        <label for="noteTags">Теги (через запятую):</label>
+                        <input type="text" id="noteTags" placeholder="идея, задача, контент">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="reminderDate">Напоминание:</label>
+                        <input type="datetime-local" id="reminderDate">
+                    </div>
+                    
+                    <button id="saveNoteBtn" class="save-btn" disabled>💾 Сохранить заметку</button>
+                </div>
+            </section>
+
+            <section class="notes-section">
+                <h2>Мои заметки</h2>
+                <div class="filter-controls">
+                    <input type="text" id="searchInput" placeholder="Поиск по тегам...">
+                    <select id="dateFilter">
+                        <option value="all">Все даты</option>
+                    </select>
+                </div>
+                
+                <div id="notesList" class="notes-list">
+                    <!-- Заметки будут здесь -->
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
