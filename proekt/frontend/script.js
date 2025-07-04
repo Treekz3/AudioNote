@@ -1,5 +1,4 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // Элементы интерфейса
     const recordButton = document.getElementById('recordButton');
     const timerDisplay = document.getElementById('timer');
     const audioPlayback = document.getElementById('audioPlayback');
@@ -18,27 +17,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const regPassword = document.getElementById('regPassword');
     const regConfirmPassword = document.getElementById('regConfirmPassword');
 
-    // Настройки API
     const API_BASE_URL = "http://localhost:8000";
     let authToken = null;
     let currentUser = null;
 
-    // Переменные для записи аудио
     let mediaRecorder;
     let audioChunks = [];
     let recordingStartTime;
     let timerInterval;
 
-    // Инициализация приложения
     checkAuthStatus();
 
-    // Обработчики событий
     recordButton.addEventListener('click', toggleRecording);
     saveNoteBtn.addEventListener('click', saveNote);
     searchInput.addEventListener('input', () => renderNotes(searchInput.value));
     dateFilter.addEventListener('change', () => renderNotes(searchInput.value, dateFilter.value));
 
-    // Функции
     async function checkAuthStatus() {
         const token = localStorage.getItem('authToken');
         if (token) {
@@ -107,13 +101,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function initApp() {
-        // Скрываем формы авторизации, показываем основное приложение
         loginForm.style.display = 'none';
         registerForm.style.display = 'none';
         document.querySelector('.recording-section').style.display = 'block';
         document.querySelector('.notes-section').style.display = 'block';
 
-        // Загружаем заметки пользователя
         renderNotes();
     }
 
@@ -143,11 +135,9 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             
             audioChunks = [];
-            mediaRecorder.start(100); // Записываем кусочки по 100 мс
+            mediaRecorder.start(100);
             recordButton.textContent = '⏹️ Остановить запись';
             recordButton.classList.add('recording');
-            
-            // Таймер
             recordingStartTime = Date.now();
             timerInterval = setInterval(updateTimer, 1000);
             updateTimer();
@@ -164,8 +154,6 @@ document.addEventListener('DOMContentLoaded', () => {
             clearInterval(timerInterval);
             recordButton.textContent = '🎤 Начать запись';
             recordButton.classList.remove('recording');
-            
-            // Остановка всех треков потока
             mediaRecorder.stream.getTracks().forEach(track => track.stop());
         }
     }
@@ -178,18 +166,27 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function saveNote() {
-        if (!audioChunks.length) return;
-        
-        const tags = noteTagsInput.value;
+        if (!audioChunks || audioChunks.length === 0) {
+            alert('Нет аудио для сохранения!');
+            return;
+        }
+
+        const tags = noteTagsInput.value.trim();
         const reminder = reminderDateInput.value;
-        
-        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-        const formData = new FormData();
-        formData.append('file', audioBlob, 'recording.wav');
-        formData.append('tags', tags);
-        if (reminder) formData.append('reminder', reminder);
-        
+        const authToken = localStorage.getItem('authToken');
+
+        if (!tags) {
+            alert('Добавьте хотя бы один тег');
+            return;
+        }
+
         try {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+            const formData = new FormData();
+            formData.append('audio', audioBlob, 'recording.wav');
+            formData.append('tags', tags);
+            if (reminder) formData.append('reminder', reminder);
+
             const response = await fetch(`${API_BASE_URL}/notes/`, {
                 method: 'POST',
                 headers: {
@@ -197,27 +194,38 @@ document.addEventListener('DOMContentLoaded', () => {
                 },
                 body: formData
             });
-            
+
             if (!response.ok) {
-                throw new Error('Ошибка сохранения заметки');
+                const errorData = await response.json().catch(() => null);
+                const errorMessage = errorData?.detail || 
+                                `HTTP error! Status: ${response.status}`;
+                throw new Error(errorMessage);
             }
+
+            resetRecordingForm();
             
-            // Сброс формы
-            audioChunks = [];
-            audioPlayback.style.display = 'none';
-            audioPlayback.src = '';
-            noteTagsInput.value = '';
-            reminderDateInput.value = '';
-            saveNoteBtn.disabled = true;
-            timerDisplay.textContent = '00:00';
-            
-            // Обновление списка заметок
-            renderNotes();
-            
+            await renderNotes();
+
         } catch (error) {
-            console.error('Ошибка:', error);
-            alert(error.message);
+            console.error('Save Note Error:', error);
+            
+            const errorMessage = error.message.includes('Failed to fetch') 
+                ? 'Не удалось подключиться к серверу. Проверьте интернет-соединение.'
+                : error.message;
+                
+            alert(`Ошибка сохранения: ${errorMessage}`);
         }
+    }
+
+    // Вспомогательная функция для сброса формы
+    function resetRecordingForm() {
+        audioChunks = [];
+        audioPlayback.style.display = 'none';
+        audioPlayback.src = '';
+        noteTagsInput.value = '';
+        reminderDateInput.value = '';
+        saveNoteBtn.disabled = true;
+        timerDisplay.textContent = '00:00';
     }
 
     async function renderNotes(searchTerm = '', dateFilterValue = 'all') {
@@ -234,7 +242,6 @@ document.addEventListener('DOMContentLoaded', () => {
             
             let notes = await response.json();
             
-            // Фильтрация на клиенте
             if (searchTerm) {
                 const searchTerms = searchTerm.toLowerCase().split(' ').filter(t => t);
                 notes = notes.filter(note => 
@@ -250,7 +257,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
             
-            // Отрисовка заметок
             if (notes.length === 0) {
                 notesList.innerHTML = '<div class="empty-state">Нет заметок. Начните запись!</div>';
                 return;
@@ -264,7 +270,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const date = new Date(note.created_at);
                 const formattedDate = date.toLocaleString();
                 
-                // Проверка напоминания
                 let reminderElement = '';
                 if (note.reminder) {
                     const reminderDate = new Date(note.reminder);
@@ -285,7 +290,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
                 
-                // Добавляем кнопку для транскрибации
                 let transcribeBtn = '';
                 if (!note.transcription) {
                     transcribeBtn = `<button class="action-btn transcribe-btn" data-id="${note.id}">✍️ Транскрибировать</button>`;
@@ -316,7 +320,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 notesList.appendChild(noteElement);
             });
             
-            // Добавляем обработчики для кнопок
             document.querySelectorAll('.delete-btn').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     const noteId = e.target.getAttribute('data-id');
@@ -382,43 +385,4 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     }
-
-    // Обработчики для форм авторизации
-    document.getElementById('loginBtn').addEventListener('click', async (e) => {
-        e.preventDefault();
-        const success = await login(loginEmail.value, loginPassword.value);
-        if (success) {
-            loginEmail.value = '';
-            loginPassword.value = '';
-        }
-    });
-
-    document.getElementById('registerBtn').addEventListener('click', async (e) => {
-        e.preventDefault();
-        if (regPassword.value !== regConfirmPassword.value) {
-            alert('Пароли не совпадают');
-            return;
-        }
-        const success = await register(regName.value, regEmail.value, regPassword.value);
-        if (success) {
-            regName.value = '';
-            regEmail.value = '';
-            regPassword.value = '';
-            regConfirmPassword.value = '';
-            document.getElementById('showLogin').click();
-        }
-    });
-
-    // Переключение между формами входа и регистрации
-    document.getElementById('showRegister').addEventListener('click', (e) => {
-        e.preventDefault();
-        loginForm.style.display = 'none';
-        registerForm.style.display = 'block';
-    });
-
-    document.getElementById('showLogin').addEventListener('click', (e) => {
-        e.preventDefault();
-        registerForm.style.display = 'none';
-        loginForm.style.display = 'block';
-    });
 });
